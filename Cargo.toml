@@ -2,6 +2,10 @@
 name = "matrix_bot_api"
 version = "0.1.0"
 authors = ["zwieberl <donko@posteo.de>"]
+description = """API for writing a bot for the Matrix messaging protocol"""
+license = "MIT"
+keywords = [ "matrix", "bot", "fractal" ]
+repository = "https://github.com/zwieberl/matrix_bot_api"
 
 [dependencies]
 chrono = "*"
