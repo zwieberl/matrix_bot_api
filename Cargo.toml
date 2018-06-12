@@ -8,5 +8,8 @@ keywords = [ "matrix", "bot", "fractal" ]
 repository = "https://github.com/zwieberl/matrix_bot_api"
 
 [dependencies]
-chrono = "*"
-fractal-matrix-api = "*"
+fractal-matrix-api = "3.29.0"
+
+[dependencies.chrono]
+features = ["serde"]
+version = "0.4.2"
