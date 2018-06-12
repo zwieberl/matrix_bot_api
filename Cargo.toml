@@ -1,0 +1,8 @@
+[package]
+name = "matrix_bot_api"
+version = "0.1.0"
+authors = ["zwieberl <donko@posteo.de>"]
+
+[dependencies]
+chrono = "*"
+fractal-matrix-api = "*"
