@@ -11,25 +11,25 @@ use fractal_matrix_api::types::{Room, Message};
 use std::sync::mpsc::channel;
 use std::sync::mpsc::{Sender, Receiver};
 
-use std::collections::HashMap;
-
+pub mod handlers;
+use handlers::MessageHandler;
 
 pub enum MessageType {
     RoomNotice,
     TextMessage,
 }
 
-pub struct MatrixBot {
+
+pub struct MatrixBot<'a> {
     backend: Sender<BKCommand>,
     rx: Receiver<BKResponse>,
     uid: Option<String>,
-    cmd_prefix: String,
-    cmd_handles: HashMap<String, fn(&MatrixBot, &str, &str)>,
     verbose: bool,
+    handler: &'a (MessageHandler + 'a),
 }
 
-impl MatrixBot {
-    pub fn new() -> MatrixBot {
+impl<'a> MatrixBot<'a> {
+    pub fn new(handler: &'a MessageHandler) -> MatrixBot<'a> {
         let (tx, rx): (Sender<BKResponse>, Receiver<BKResponse>) = channel();
         let bk = Backend::new(tx);
         // Here it would be ideal to extend fractal_matrix_api in order to be able to give
@@ -41,15 +41,9 @@ impl MatrixBot {
             backend: bk.run(),
             rx: rx,
             uid: None,
-            cmd_prefix: "!".to_string(),
-            cmd_handles: HashMap::new(),
             verbose: false,
+            handler: handler
         }
-    }
-
-    /* Default of the prefix is ! */
-    pub fn set_cmd_prefix(&mut self, prefix: &str) {
-        self.cmd_prefix = prefix.to_string();
     }
 
     pub fn set_verbose(&mut self, verbose: bool) {
@@ -110,19 +104,6 @@ impl MatrixBot {
         self.backend.send(BKCommand::SendMsg(m)).unwrap();
     }
 
-    /* One can register the handles here.
-     * bot:     This bot
-     * room:    The room the command was sent in
-     * message: The complete message-body
-     */
-    pub fn register_handle(
-        &mut self,
-        command: &str,
-        handler: fn(bot: &MatrixBot, room: &str, message: &str),
-    ) {
-        self.cmd_handles.insert(command.to_string(), handler);
-    }
-
     /* --------- Private functions ------------ */
     fn handle_recvs(&mut self, resp: BKResponse) -> bool {
         if self.verbose {
@@ -158,39 +139,12 @@ impl MatrixBot {
                 ))
                 .unwrap();
 
+            // It might be a command for us, if the message is text
+            // and if its not from the bot itself
+            let uid = self.uid.clone().unwrap_or_default();
             // This might be a command for us (only text-messages are interesting)
-            if message.mtype == "m.text" {
-                let uid = self.uid.clone().unwrap_or_default();
-                // Its a command for us, if the message starts with the configured prefix
-                // and if its not from the bot itself
-                if message.body.starts_with(&self.cmd_prefix) && message.sender != uid {
-                    let new_start = self.cmd_prefix.len();
-                    let key = message.body.split_whitespace().next().unwrap();
-                    if self.verbose {
-                        println!(
-                            "Found command {}, checking Hashmap for {}",
-                            &key,
-                            &key[new_start..]
-                        );
-                    }
-
-                    let func = self.cmd_handles.get(&key[new_start..]).map(|x| *x);
-
-                    match func {
-                        Some(func) => {
-                            if self.verbose {
-                                println!("Found handle for command \"{}\". Calling it.", &key);
-                            }
-
-                            func(self, &message.room, &message.body)
-                        }
-                        None => {
-                            if self.verbose {
-                                println!("Command \"{}\" not found in registered handles", &key);
-                            }
-                        }
-                    }
-                }
+            if message.mtype == "m.text" && message.sender != uid {
+                self.handler.handle_message(&self, &message.room, &message.body);
             }
         }
     }
