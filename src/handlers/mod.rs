@@ -13,5 +13,5 @@ pub fn extract_command<'a>(message: &'a str, prefix: &str) -> Option<&'a str> {
     None
 }
 
-pub mod simple_handler;
-pub use self::simple_handler::SimpleHandler;
+pub mod stateless_handler;
+pub use self::stateless_handler::StatelessHandler;

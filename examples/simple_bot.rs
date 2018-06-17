@@ -1,14 +1,14 @@
 
 extern crate matrix_bot_api;
 use matrix_bot_api::{MatrixBot, MessageType};
-use matrix_bot_api::handlers::SimpleHandler;
+use matrix_bot_api::handlers::StatelessHandler;
 
 fn main() {
     let user = "simple_bot";
     let password = "some_password";
     let homeserver_url = "https://some_homeserver";
 
-    let mut handler = SimpleHandler::new();
+    let mut handler = StatelessHandler::new();
     // Register handle that prints "I'm a bot." as a room-notice on command !whoareyou
     handler.register_handle("whoareyou", |bot: &MatrixBot, room: &str, _cmd: &str| {
         bot.send_message("I'm a bot.", room, MessageType::RoomNotice);

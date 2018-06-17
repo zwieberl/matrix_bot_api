@@ -2,14 +2,14 @@ use std::collections::HashMap;
 use handlers::{MessageHandler, extract_command};
 use MatrixBot;
 
-pub struct SimpleHandler {
+pub struct StatelessHandler {
     cmd_prefix: String,
     cmd_handles: HashMap<String, fn(&MatrixBot, &str, &str)>,
 }
 
-impl SimpleHandler {
-    pub fn new() -> SimpleHandler {
-    	SimpleHandler{cmd_prefix: "!".to_string(),
+impl StatelessHandler {
+    pub fn new() -> StatelessHandler {
+    	StatelessHandler{cmd_prefix: "!".to_string(),
             		  cmd_handles: HashMap::new()}
     }
 
@@ -31,7 +31,7 @@ impl SimpleHandler {
     }
 }
 
-impl MessageHandler for SimpleHandler {
+impl MessageHandler for StatelessHandler {
     fn handle_message(&self, bot: &MatrixBot, room: &str, message: &str) {
     	match extract_command(message, &self.cmd_prefix) {
     		Some(command) => {
