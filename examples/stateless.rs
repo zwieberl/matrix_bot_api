@@ -1,24 +1,40 @@
+// This is not a hard dependency.
+// Just used for loading the username, password and homeserverurl from a file.
 extern crate config;
 
 extern crate matrix_bot_api;
 use matrix_bot_api::{MatrixBot, MessageType};
 use matrix_bot_api::handlers::StatelessHandler;
 
+// Handle that prints "I'm a bot." as a room-notice on command !whoareyou
+fn whoareyou(bot: &MatrixBot, room: &str, _cmd: &str) {
+    bot.send_message("I'm a bot.", room, MessageType::RoomNotice);
+}
+
 fn main() {
+    // ------- Getting the login-credentials from file -------
+    // You can get them however you like: hard-code them here, env-variable,
+    // tcp-connection, read from file, etc. Here, we use the config-crate to
+    // load from botconfig.toml.
+    // Change this file to your needs, if you want to use this example binary.
     let mut settings = config::Config::default();
     settings.merge(config::File::with_name("examples/botconfig")).unwrap();
 
     let user = settings.get_str("user").unwrap();
     let password  = settings.get_str("password").unwrap();
     let homeserver_url = settings.get_str("homeserver_url").unwrap();
+    // -------------------------------------------------------
 
+    // Our functions won't have a state, so a stateless handler is what we want.
+    // To keep it simple, matrix_bot_api does provide one for you:
     let mut handler = StatelessHandler::new();
-    // Register handle that prints "I'm a bot." as a room-notice on command !whoareyou
-    handler.register_handle("whoareyou", |bot: &MatrixBot, room: &str, _cmd: &str| {
-        bot.send_message("I'm a bot.", room, MessageType::RoomNotice);
-    });
 
-    // Register handle that lets the bot leave the current room on !leave
+    // Register a handle. The function whoareyou() will be called when a user
+    // types !whoareyou into the chat
+    handler.register_handle("whoareyou", whoareyou);
+
+    // Register handle that lets the bot leave the current room on !leave.
+    // We can also use closures that do not capture here.
     handler.register_handle("leave", |bot: &MatrixBot, room: &str, _cmd: &str| {
         bot.send_message("Bye!", room, MessageType::RoomNotice);
         bot.leave_room(room);
@@ -34,11 +50,13 @@ fn main() {
         bot.shutdown();
     });
 
+    // Give the handler to your new bot
     let mut bot = MatrixBot::new(handler);
-    // To get all Matrix-message coming in and going out (quite verbose!)
+
+    // Optional: To get all Matrix-message coming in and going out (quite verbose!)
     bot.set_verbose(true);
 
-
-    // Blocking call (until shutdown).
+    // Blocking call (until shutdown). Handles all incoming messages and calls the associated functions.
+    // The bot will automatically join room it is invited to.
     bot.run(&user, &password, &homeserver_url);
 }
