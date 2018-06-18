@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use handlers::{MessageHandler, extract_command};
 use MatrixBot;
 
+/// Convenience-handler that can quickly register and call functions
+/// without any state (each function-call will result in the same output)
 pub struct StatelessHandler {
     cmd_prefix: String,
     cmd_handles: HashMap<String, fn(&MatrixBot, &str, &str)>,
@@ -13,16 +15,25 @@ impl StatelessHandler {
             		  cmd_handles: HashMap::new()}
     }
 
-    /* Default of the prefix is ! */
+    /// With what prefix commands to the bot will start
+    /// Default: "!"
     pub fn set_cmd_prefix(&mut self, prefix: &str) {
         self.cmd_prefix = prefix.to_string();
     }
 
-    /* One can register the handles here.
-     * bot:     This bot
-     * room:    The room the command was sent in
-     * message: The complete message-body
-     */
+    /// Register handles
+    /// * command: For which command (excluding the prefix!) the handler should be called
+    /// * handler: The handler to be called if the given command was received in the room
+    ///
+    /// Handler-function:
+    /// * bot:     This bot
+    /// * room:    The room the command was sent in
+    /// * message: The complete message-body
+    ///
+    /// # Example
+    /// handler.set_cmd_prefix("BOT:")
+    /// handler.register_handle("sayhi", foo);
+    /// foo() will be called, when BOT:sayhi is received by the bot
     pub fn register_handle(&mut self,
 					       command: &str,
 					       handler: fn(bot: &MatrixBot, room: &str, message: &str))

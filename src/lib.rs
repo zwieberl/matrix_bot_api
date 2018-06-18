@@ -1,3 +1,37 @@
+//! # matrix_bot_api
+//! Easy to use API for implementing your own Matrix-Bot (see matrix.org)
+//!
+//! # Basic setup:
+//! There are two parts: A MessageHandler and the MatrixBot.
+//! The MessageHandler defines what happens on received messages
+//! The MatrixBot consumes your MessageHandler and deals with all
+//! the matrix-protocol-stuff, calling your MessageHandler for each
+//! new text-message.
+//!
+//! You can write your own MessageHandler by implementing the `MessageHandler`-trait,
+//! or use one provided by this crate (currently only `StatelessHandler`).
+//!
+//! # Example
+//! ```
+//! extern crate matrix_bot_api;
+//! use matrix_bot_api::{MatrixBot, MessageType};
+//! use matrix_bot_api::handlers::StatelessHandler;
+//!
+//! fn main() {
+//!     let mut handler = StatelessHandler::new();
+//!     handler.register_handle("shutdown", |bot: &MatrixBot, _room: &str, _cmd: &str| {
+//!         bot.shutdown();
+//!     });
+//!
+//!     handler.register_handle("echo", |bot: &MatrixBot, room: &str, cmd: &str| {
+//!         bot.send_message(&format!("Echo: {}", cmd), room, MessageType::TextMessage);
+//!     });
+//!
+//!     let mut bot = MatrixBot::new(handler);
+//!     bot.run(&user, &password, &homeserver_url);
+//! }
+//! ```
+//! Have a look in the examples/ directory for detailed examples.
 
 extern crate fractal_matrix_api;
 extern crate chrono;
@@ -14,6 +48,8 @@ use std::sync::mpsc::{Sender, Receiver};
 pub mod handlers;
 use handlers::MessageHandler;
 
+/// How messages from the bot should be formated. This is up to the client,
+/// but usually RoomNotice's have a different color than TextMessage's.
 pub enum MessageType {
     RoomNotice,
     TextMessage,
@@ -29,6 +65,7 @@ pub struct MatrixBot {
 }
 
 impl MatrixBot {
+    /// Consumes any struct that implements the MessageHandler-trait.
     pub fn new<M>(handler: M) -> MatrixBot
         where M: handlers::MessageHandler + 'static {
         let (tx, rx): (Sender<BKResponse>, Receiver<BKResponse>) = channel();
@@ -47,11 +84,17 @@ impl MatrixBot {
         }
     }
 
+    /// If true, will print all Matrix-message coming in and going out (quite verbose!) to stdout
+    /// Default: false
     pub fn set_verbose(&mut self, verbose: bool) {
         self.verbose = verbose;
     }
 
-    /* Blocking call that runs as long as the Bot is running */
+    /// Blocking call that runs as long as the Bot is running.
+    /// Will call for each incoming text-message the given MessageHandler.
+    /// Bot will automatically join all rooms it is invited to.
+    /// Will return on shutdown only.
+    /// All messages prior to run() will be ignored.
     pub fn run(mut self, user: &str, password: &str, homeserver_url: &str) {
         self.backend
             .send(BKCommand::Login(
@@ -68,16 +111,22 @@ impl MatrixBot {
         }
     }
 
+    /// Will shutdown the bot. The bot will not leave any rooms.
     pub fn shutdown(&self) {
         self.backend.send(BKCommand::ShutDown).unwrap();
     }
 
+    /// Will leave the given room (give room-id, not room-name)
     pub fn leave_room(&self, room_id: &str) {
         self.backend
             .send(BKCommand::LeaveRoom(room_id.to_string()))
             .unwrap();
     }
 
+    /// Sends a message to a given room, with a given message-type.
+    ///  * msg:     The incoming message
+    ///  * room:    The room-id, the message should be sent to
+    ///  * msgtype: Type of message (text or notice)
     pub fn send_message(&self, msg: &str, room: &str, msgtype: MessageType) {
         let uid = self.uid.clone().unwrap_or_default();
         let mtype = match msgtype {
