@@ -1,12 +1,16 @@
+extern crate config;
 
 extern crate matrix_bot_api;
 use matrix_bot_api::{MatrixBot, MessageType};
 use matrix_bot_api::handlers::StatelessHandler;
 
 fn main() {
-    let user = "simple_bot";
-    let password = "some_password";
-    let homeserver_url = "https://some_homeserver";
+    let mut settings = config::Config::default();
+    settings.merge(config::File::with_name("examples/botconfig")).unwrap();
+
+    let user = settings.get_str("user").unwrap();
+    let password  = settings.get_str("password").unwrap();
+    let homeserver_url = settings.get_str("homeserver_url").unwrap();
 
     let mut handler = StatelessHandler::new();
     // Register handle that prints "I'm a bot." as a room-notice on command !whoareyou
@@ -30,11 +34,11 @@ fn main() {
         bot.shutdown();
     });
 
-    let mut bot = MatrixBot::new(&handler);
+    let mut bot = MatrixBot::new(handler);
     // To get all Matrix-message coming in and going out (quite verbose!)
     bot.set_verbose(true);
 
 
     // Blocking call (until shutdown).
-    bot.run(user, password, homeserver_url);
+    bot.run(&user, &password, &homeserver_url);
 }

@@ -32,7 +32,7 @@ impl StatelessHandler {
 }
 
 impl MessageHandler for StatelessHandler {
-    fn handle_message(&self, bot: &MatrixBot, room: &str, message: &str) {
+    fn handle_message(&mut self, bot: &MatrixBot, room: &str, message: &str) {
     	match extract_command(message, &self.cmd_prefix) {
     		Some(command) => {
 						    	let func = self.cmd_handles.get(command).map(|x| *x);
@@ -52,5 +52,5 @@ impl MessageHandler for StatelessHandler {
 						    }
     		None => {/* Doing nothing. Not for us */}
     	}
-    }
+   }
 }

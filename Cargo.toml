@@ -13,3 +13,6 @@ fractal-matrix-api = "3.29.0"
 [dependencies.chrono]
 features = ["serde"]
 version = "0.4.2"
+
+[dev-dependencies]
+config = "0.8"

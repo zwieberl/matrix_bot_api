@@ -20,16 +20,17 @@ pub enum MessageType {
 }
 
 
-pub struct MatrixBot<'a> {
+pub struct MatrixBot {
     backend: Sender<BKCommand>,
     rx: Receiver<BKResponse>,
     uid: Option<String>,
     verbose: bool,
-    handler: &'a (MessageHandler + 'a),
+    handler: Option<Box<MessageHandler>>,
 }
 
-impl<'a> MatrixBot<'a> {
-    pub fn new(handler: &'a MessageHandler) -> MatrixBot<'a> {
+impl MatrixBot {
+    pub fn new<M>(handler: M) -> MatrixBot
+        where M: handlers::MessageHandler + 'static {
         let (tx, rx): (Sender<BKResponse>, Receiver<BKResponse>) = channel();
         let bk = Backend::new(tx);
         // Here it would be ideal to extend fractal_matrix_api in order to be able to give
@@ -42,7 +43,7 @@ impl<'a> MatrixBot<'a> {
             rx: rx,
             uid: None,
             verbose: false,
-            handler: handler
+            handler: Some(Box::new(handler))
         }
     }
 
@@ -128,7 +129,7 @@ impl<'a> MatrixBot<'a> {
         true
     }
 
-    fn handle_messages(&self, messages: Vec<Message>) {
+    fn handle_messages(&mut self, messages: Vec<Message>) {
 
         for message in messages {
             /* First of all, mark all new messages as "read" */
@@ -144,7 +145,13 @@ impl<'a> MatrixBot<'a> {
             let uid = self.uid.clone().unwrap_or_default();
             // This might be a command for us (only text-messages are interesting)
             if message.mtype == "m.text" && message.sender != uid {
-                self.handler.handle_message(&self, &message.room, &message.body);
+                // We take the handler, in order to be able to borrow self (MatrixBot)
+                // and hand it to the handler-function. After successfull call, we
+                // reset the handler.
+                if let Some(mut handler) = self.handler.take() {
+                    handler.handle_message(&self, &message.room, &message.body);
+                    self.handler = Some(handler);
+                }
             }
         }
     }
