@@ -1,6 +1,6 @@
 [package]
 name = "matrix_bot_api"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["zwieberl <donko@posteo.de>"]
 description = """API for writing a bot for the Matrix messaging protocol"""
 license = "MIT"
