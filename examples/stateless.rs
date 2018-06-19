@@ -4,11 +4,12 @@ extern crate config;
 
 extern crate matrix_bot_api;
 use matrix_bot_api::{MatrixBot, MessageType};
-use matrix_bot_api::handlers::StatelessHandler;
+use matrix_bot_api::handlers::{StatelessHandler, HandleResult};
 
 // Handle that prints "I'm a bot." as a room-notice on command !whoareyou
-fn whoareyou(bot: &MatrixBot, room: &str, _cmd: &str) {
+fn whoareyou(bot: &MatrixBot, room: &str, _cmd: &str) -> HandleResult {
     bot.send_message("I'm a bot.", room, MessageType::RoomNotice);
+    HandleResult::StopHandling
 }
 
 fn main() {
@@ -38,16 +39,19 @@ fn main() {
     handler.register_handle("leave", |bot: &MatrixBot, room: &str, _cmd: &str| {
         bot.send_message("Bye!", room, MessageType::RoomNotice);
         bot.leave_room(room);
+        HandleResult::StopHandling
     });
 
     // Simply echo what was given to you by !echo XY (note, this also echoes "!echo")
     handler.register_handle("echo", |bot: &MatrixBot, room: &str, cmd: &str| {
         bot.send_message(&format!("Echo: {}", cmd), room, MessageType::TextMessage);
+        HandleResult::StopHandling
     });
 
     // Shutdown on !shutdown. This does not leave any rooms.
     handler.register_handle("shutdown", |bot: &MatrixBot, _room: &str, _cmd: &str| {
         bot.shutdown();
+        HandleResult::StopHandling
     });
 
     // Give the handler to your new bot

@@ -1,12 +1,12 @@
 use std::collections::HashMap;
-use handlers::{MessageHandler, extract_command};
+use handlers::{MessageHandler, extract_command, HandleResult};
 use MatrixBot;
 
 /// Convenience-handler that can quickly register and call functions
 /// without any state (each function-call will result in the same output)
 pub struct StatelessHandler {
     cmd_prefix: String,
-    cmd_handles: HashMap<String, fn(&MatrixBot, &str, &str)>,
+    cmd_handles: HashMap<String, fn(&MatrixBot, &str, &str) -> HandleResult>,
 }
 
 impl StatelessHandler {
@@ -36,14 +36,14 @@ impl StatelessHandler {
     /// foo() will be called, when BOT:sayhi is received by the bot
     pub fn register_handle(&mut self,
 					       command: &str,
-					       handler: fn(bot: &MatrixBot, room: &str, message: &str))
+					       handler: fn(bot: &MatrixBot, room: &str, message: &str) -> HandleResult)
     {
         self.cmd_handles.insert(command.to_string(), handler);
     }
 }
 
 impl MessageHandler for StatelessHandler {
-    fn handle_message(&mut self, bot: &MatrixBot, room: &str, message: &str) {
+    fn handle_message(&mut self, bot: &MatrixBot, room: &str, message: &str) -> HandleResult {
     	match extract_command(message, &self.cmd_prefix) {
     		Some(command) => {
 						    	let func = self.cmd_handles.get(command).map(|x| *x);
@@ -58,10 +58,11 @@ impl MessageHandler for StatelessHandler {
 						                if bot.verbose {
 						                    println!("Command \"{}\" not found in registered handles", &command);
 						                }
+                                        HandleResult::ContinueHandling
 						            }
 						        }
 						    }
-    		None => {/* Doing nothing. Not for us */}
+    		None => { HandleResult::ContinueHandling /* Doing nothing. Not for us */}
     	}
    }
 }

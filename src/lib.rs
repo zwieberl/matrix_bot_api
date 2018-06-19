@@ -3,7 +3,7 @@
 //!
 //! # Basic setup:
 //! There are two parts: A MessageHandler and the MatrixBot.
-//! The MessageHandler defines what happens on received messages
+//! The MessageHandler defines what happens with received messages.
 //! The MatrixBot consumes your MessageHandler and deals with all
 //! the matrix-protocol-stuff, calling your MessageHandler for each
 //! new text-message.
@@ -11,24 +11,33 @@
 //! You can write your own MessageHandler by implementing the `MessageHandler`-trait,
 //! or use one provided by this crate (currently only `StatelessHandler`).
 //!
+//! # Multple Handlers:
+//! One can register multiple MessageHandlers with a bot. Thus one can "plug and play"
+//! different features to ones MatrixBot.
+//! Messages are given to each handler in the order of their registration.
+//! A message is given to the next handler until one handler returns `StopHandling`.
+//! Thus a message can be handled by multiple handlers as well (for example for "help").
+//!
 //! # Example
 //! ```
 //! extern crate matrix_bot_api;
 //! use matrix_bot_api::{MatrixBot, MessageType};
-//! use matrix_bot_api::handlers::StatelessHandler;
+//! use matrix_bot_api::handlers::{StatelessHandler, HandleResult};
 //!
 //! fn main() {
 //!     let mut handler = StatelessHandler::new();
 //!     handler.register_handle("shutdown", |bot: &MatrixBot, _room: &str, _cmd: &str| {
 //!         bot.shutdown();
+//!         HandleResult::ContinueHandling /* Other handlers might need to clean up after themselves on shutdown */
 //!     });
 //!
 //!     handler.register_handle("echo", |bot: &MatrixBot, room: &str, cmd: &str| {
 //!         bot.send_message(&format!("Echo: {}", cmd), room, MessageType::TextMessage);
+//!         HandleResult::StopHandling
 //!     });
 //!
 //!     let mut bot = MatrixBot::new(handler);
-//!     bot.run(&user, &password, &homeserver_url);
+//!     bot.run("your_bot", "secret_password", "https://your.homeserver");
 //! }
 //! ```
 //! Have a look in the examples/ directory for detailed examples.
@@ -46,7 +55,7 @@ use std::sync::mpsc::channel;
 use std::sync::mpsc::{Sender, Receiver};
 
 pub mod handlers;
-use handlers::MessageHandler;
+use handlers::{MessageHandler, HandleResult};
 
 /// How messages from the bot should be formated. This is up to the client,
 /// but usually RoomNotice's have a different color than TextMessage's.
@@ -61,7 +70,7 @@ pub struct MatrixBot {
     rx: Receiver<BKResponse>,
     uid: Option<String>,
     verbose: bool,
-    handler: Option<Box<MessageHandler>>,
+    handlers: Option<Vec<Box<MessageHandler>>>,
 }
 
 impl MatrixBot {
@@ -80,7 +89,18 @@ impl MatrixBot {
             rx: rx,
             uid: None,
             verbose: false,
-            handler: Some(Box::new(handler))
+            handlers: Some(vec![Box::new(handler)])
+        }
+    }
+
+    /// Add an additional handler.
+    /// Each message will be given to all registered handlers until
+    /// one of them returns "HandleResult::StopHandling".
+    pub fn add_handler<M>(&mut self, handler: M)
+    where M: handlers::MessageHandler + 'static {
+        if let Some(mut handlers) = self.handlers.take() {
+            handlers.push(Box::new(handler));
+            self.handlers = Some(handlers)
         }
     }
 
@@ -194,12 +214,17 @@ impl MatrixBot {
             let uid = self.uid.clone().unwrap_or_default();
             // This might be a command for us (only text-messages are interesting)
             if message.mtype == "m.text" && message.sender != uid {
-                // We take the handler, in order to be able to borrow self (MatrixBot)
+                // We take the handlers, in order to be able to borrow self (MatrixBot)
                 // and hand it to the handler-function. After successfull call, we
-                // reset the handler.
-                if let Some(mut handler) = self.handler.take() {
-                    handler.handle_message(&self, &message.room, &message.body);
-                    self.handler = Some(handler);
+                // reset the handlers.
+                if let Some(mut handlers) = self.handlers.take() {
+                    for mut handler in &mut handlers {
+                        match handler.handle_message(&self, &message.room, &message.body) {
+                            HandleResult::ContinueHandling => continue,
+                            HandleResult::StopHandling     => break,
+                        }
+                    }
+                    self.handlers = Some(handlers);
                 }
             }
         }

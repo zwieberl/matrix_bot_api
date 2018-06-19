@@ -4,43 +4,44 @@ extern crate config;
 
 extern crate matrix_bot_api;
 use matrix_bot_api::{MatrixBot, MessageType};
-use matrix_bot_api::handlers::{MessageHandler, extract_command};
+use matrix_bot_api::handlers::{MessageHandler, extract_command, HandleResult};
 
 // Our handler wants a mutable state (here represented by a little counter-variable)
 // This counter can be increased or decreased by users giving the bot a command.
-pub struct MyHandler {
+pub struct CounterHandler {
     counter: i32,
 }
 
-impl MyHandler {
-    fn new() -> MyHandler {
-        MyHandler{counter: 0}
+impl CounterHandler {
+    fn new() -> CounterHandler {
+        CounterHandler{counter: 0}
     }
 }
 
 // Implement the trait MessageHandler, to be able to give it to our MatrixBot.
 // This trait only has one function: handle_message() and will be called on each
 // new (text-)message in the room the bot is in.
-impl MessageHandler for MyHandler {
-    fn handle_message(&mut self, bot: &MatrixBot, room: &str, message: &str) {
+impl MessageHandler for CounterHandler {
+    fn handle_message(&mut self, bot: &MatrixBot, room: &str, message: &str) -> HandleResult {
         // extract_command() will split the message by whitespace and remove the prefix (here "!")
         // from the first entry. If the message does not start with the given prefix, None is returned.
         let command = match extract_command(message, "!") {
             Some(x) => x,
-            None => return,
+            None => return HandleResult::ContinueHandling,
         };
 
-      // Now we have the current command (some text prefixed with our prefix !)
-      // Your handler could have a HashMap with the command as the key
-      // and a specific function for it (like StatelessHandler does it),
-      // or you can use a simple match-statement, to act on the given command:
-      match command {
+        // Now we have the current command (some text prefixed with our prefix !)
+        // Your handler could have a HashMap with the command as the key
+        // and a specific function for it (like StatelessHandler does it),
+        // or you can use a simple match-statement, to act on the given command:
+        match command {
           "incr" => self.counter += 1,
           "decr" => self.counter -= 1,
           "show" => bot.send_message(&format!("Counter = {}", self.counter), room, MessageType::RoomNotice),
           "shutdown" => bot.shutdown(),
-          _ => return /* Not a known command */
-      }
+          _ => return HandleResult::ContinueHandling /* Not a known command */
+        }
+        HandleResult::StopHandling
     }
 }
 
@@ -60,7 +61,7 @@ fn main() {
 
     // Here we want a handler with state (simple counter-variable).
     // So we had to implement our own MessageHandler.
-    let handler = MyHandler::new();
+    let handler = CounterHandler::new();
 
     // Give the handler to your new bot
     let bot = MatrixBot::new(handler);

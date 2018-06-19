@@ -1,9 +1,19 @@
 use MatrixBot;
 
+/// What to do after finished handling a message
+pub enum HandleResult {
+	/// Give this message to the next MessageHandler as well
+	ContinueHandling,
+	/// Stop handling this message
+	StopHandling
+}
+
 /// Any struct that implements this trait can be passed to a MatrixBot.
 /// The bot will call handle_message() on each arriving text-message
+/// The result HandleResult defines if `handle_message()` of other handlers will
+/// be called with this message or not.
 pub trait MessageHandler {
-    fn handle_message(&mut self, bot: &MatrixBot, room: &str, message: &str);
+    fn handle_message(&mut self, bot: &MatrixBot, room: &str, message: &str) -> HandleResult;
 }
 
 /// Convenience-function to split the incoming message by whitespace and
