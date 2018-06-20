@@ -129,7 +129,7 @@ fn roll_dice(bot: &MatrixBot, room: &str, cmd: &str) -> HandleResult {
     let cmd_split = cmd.split_whitespace();
 
     let mut results: Vec<u32> = vec![];
-    for dice in cmd_split.skip(1) {
+    for dice in cmd_split {
         let sides = match dice.parse::<u32>() {
             Ok(x) => x,
             Err(_) => { bot.send_message(&format!("{} is not a number.", dice), room, MessageType::RoomNotice);

@@ -42,7 +42,7 @@ fn main() {
         HandleResult::StopHandling
     });
 
-    // Simply echo what was given to you by !echo XY (note, this also echoes "!echo")
+    // Simply echo what was given to you by !echo XY (will print only "Echo: XY", !echo is stripped)
     handler.register_handle("echo", |bot: &MatrixBot, room: &str, cmd: &str| {
         bot.send_message(&format!("Echo: {}", cmd), room, MessageType::TextMessage);
         HandleResult::StopHandling
