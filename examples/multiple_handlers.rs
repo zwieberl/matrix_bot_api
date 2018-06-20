@@ -44,7 +44,7 @@ fn main() {
 
     let mut shutdown = StatelessHandler::new();
     // Handlers can have different prefixes of course
-    shutdown.set_cmd_prefix("BOT:");
+    shutdown.set_cmd_prefix("BOT: ");
 
     shutdown.register_handle("leave", |bot: &MatrixBot, room: &str, _cmd: &str| {
         bot.send_message("Bye!", room, MessageType::RoomNotice);
