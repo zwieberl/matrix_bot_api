@@ -83,7 +83,7 @@ impl MatrixBot {
         // sync a limit-parameter.
         // Until then, the workaround is to send "since" of the backend to "now".
         // Not interested in any messages since login
-        bk.data.lock().unwrap().since = Local::now().to_string();
+        bk.data.lock().unwrap().since = Some(Local::now().to_string());
         MatrixBot {
             backend: bk.run(),
             rx: rx,
@@ -165,6 +165,11 @@ impl MatrixBot {
             id: None,
             formatted_body: None,
             format: None,
+            in_reply_to: None,
+            receipt: std::collections::HashMap::new(),
+            redacted: false,
+            extra_content: None,
+            source: None
         };
         m.id = Some(m.get_txn_id());
 
@@ -184,12 +189,12 @@ impl MatrixBot {
             BKResponse::NewRooms(x) => self.handle_rooms(x),
             //BKResponse::Rooms(x, _) => self.handle_rooms(x),
             BKResponse::RoomMessages(x) => self.handle_messages(x),
-            BKResponse::Token(uid, _) => {
+            BKResponse::Token(uid, _, _) => {
                 self.uid = Some(uid); // Successfull login
-                self.backend.send(BKCommand::Sync).unwrap();
+                self.backend.send(BKCommand::Sync(None, true)).unwrap();
             }
-            BKResponse::Sync(_) => self.backend.send(BKCommand::Sync).unwrap(),
-            BKResponse::SyncError(_) => self.backend.send(BKCommand::Sync).unwrap(),
+            BKResponse::Sync(_) => self.backend.send(BKCommand::Sync(None, false)).unwrap(),
+            BKResponse::SyncError(_) => self.backend.send(BKCommand::Sync(None, false)).unwrap(),
             BKResponse::ShutDown => {
                 return false;
             }
