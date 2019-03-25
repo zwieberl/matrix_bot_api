@@ -49,7 +49,7 @@ use self::chrono::prelude::*;
 use fractal_matrix_api::backend::Backend;
 use fractal_matrix_api::backend::BKCommand;
 use fractal_matrix_api::backend::BKResponse;
-use fractal_matrix_api::types::{Room, Message};
+pub use fractal_matrix_api::types::{Room, Message};
 
 use std::sync::mpsc::channel;
 use std::sync::mpsc::{Sender, Receiver};
