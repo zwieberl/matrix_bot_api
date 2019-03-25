@@ -26,13 +26,13 @@
 //!
 //! fn main() {
 //!     let mut handler = StatelessHandler::new();
-//!     handler.register_handle("shutdown", |bot: &MatrixBot, _room: &str, _cmd: &str| {
+//!     handler.register_handle("shutdown", |bot, _, _| {
 //!         bot.shutdown();
 //!         HandleResult::ContinueHandling /* Other handlers might need to clean up after themselves on shutdown */
 //!     });
 //!
-//!     handler.register_handle("echo", |bot: &MatrixBot, room: &str, cmd: &str| {
-//!         bot.send_message(&format!("Echo: {}", cmd), room, MessageType::TextMessage);
+//!     handler.register_handle("echo", |bot, message, tail| {
+//!         bot.send_message(&format!("Echo: {}", tail), &message.room, MessageType::TextMessage);
 //!         HandleResult::StopHandling
 //!     });
 //!
@@ -224,7 +224,7 @@ impl MatrixBot {
                 // reset the handlers.
                 if let Some(mut handlers) = self.handlers.take() {
                     for mut handler in &mut handlers {
-                        match handler.handle_message(&self, &message.room, &message.body) {
+                        match handler.handle_message(&self, &message) {
                             HandleResult::ContinueHandling => continue,
                             HandleResult::StopHandling     => break,
                         }

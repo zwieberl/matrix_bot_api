@@ -1,12 +1,12 @@
 use std::collections::HashMap;
-use handlers::{MessageHandler, extract_command, HandleResult};
+use handlers::{Message, MessageHandler, extract_command, HandleResult};
 use MatrixBot;
 
 /// Convenience-handler that can quickly register and call functions
 /// without any state (each function-call will result in the same output)
 pub struct StatelessHandler {
     cmd_prefix: String,
-    cmd_handles: HashMap<String, fn(&MatrixBot, &str, &str) -> HandleResult>,
+    cmd_handles: HashMap<String, fn(&MatrixBot, &Message, &str) -> HandleResult>,
 }
 
 impl StatelessHandler {
@@ -27,8 +27,8 @@ impl StatelessHandler {
     ///
     /// Handler-function:
     /// * bot:     This bot
-    /// * room:    The room the command was sent in
-    /// * command: The message-body without prefix and command (e.g. "!roll 12" -> "12")
+    /// * message: The message from fractal, containing the room the command was sent in, message body, etc.
+    /// * tail:    The message-body without prefix and command (e.g. "!roll 12" -> "12")
     ///
     /// # Example
     /// handler.set_cmd_prefix("BOT:")
@@ -36,15 +36,15 @@ impl StatelessHandler {
     /// foo() will be called, when BOT:sayhi is received by the bot
     pub fn register_handle(&mut self,
                            command: &str,
-                           handler: fn(bot: &MatrixBot, room: &str, message: &str) -> HandleResult)
+                           handler: fn(bot: &MatrixBot, message: &Message, tail: &str) -> HandleResult)
     {
         self.cmd_handles.insert(command.to_string(), handler);
     }
 }
 
 impl MessageHandler for StatelessHandler {
-    fn handle_message(&mut self, bot: &MatrixBot, room: &str, message: &str) -> HandleResult {
-        match extract_command(message, &self.cmd_prefix) {
+    fn handle_message(&mut self, bot: &MatrixBot, message: &Message) -> HandleResult {
+        match extract_command(&message.body, &self.cmd_prefix) {
             Some(command) => {
                                 let func = self.cmd_handles.get(command).map(|x| *x);
                                 match func {
@@ -53,7 +53,7 @@ impl MessageHandler for StatelessHandler {
                                             println!("Found handle for command \"{}\". Calling it.", &command);
                                         }
                                         let end_of_prefix = self.cmd_prefix.len() + command.len();
-                                        func(bot, &room, &message[end_of_prefix..])
+                                        func(bot, message, &message.body[end_of_prefix..])
                                     }
                                     None => {
                                         if bot.verbose {

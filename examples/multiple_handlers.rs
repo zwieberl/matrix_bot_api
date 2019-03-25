@@ -6,7 +6,7 @@ extern crate rand;
 
 extern crate matrix_bot_api;
 use matrix_bot_api::{MatrixBot, MessageType};
-use matrix_bot_api::handlers::{MessageHandler, StatelessHandler, extract_command, HandleResult};
+use matrix_bot_api::handlers::{Message, MessageHandler, StatelessHandler, extract_command, HandleResult};
 
 
 fn main() {
@@ -46,13 +46,13 @@ fn main() {
     // Handlers can have different prefixes of course
     shutdown.set_cmd_prefix("BOT: ");
 
-    shutdown.register_handle("leave", |bot: &MatrixBot, room: &str, _cmd: &str| {
-        bot.send_message("Bye!", room, MessageType::RoomNotice);
-        bot.leave_room(room);
+    shutdown.register_handle("leave", |bot, message, _| {
+        bot.send_message("Bye!", &message.room, MessageType::RoomNotice);
+        bot.leave_room(&message.room);
         HandleResult::StopHandling
     });
 
-    shutdown.register_handle("shutdown", |bot: &MatrixBot, _room: &str, _cmd: &str| {
+    shutdown.register_handle("shutdown", |bot, _message, _| {
         bot.shutdown();
         HandleResult::StopHandling
     });
@@ -78,19 +78,19 @@ impl CounterHandler {
         CounterHandler{counter: 0}
     }
 
-    fn show_help(&mut self, bot: &MatrixBot, room: &str, _cmd: &str) -> HandleResult {
-        let mut message = "Counter:\n".to_string();
-        message += "!incr = Increases counter by one\n";
-        message += "!decr = Decreases counter by one\n";
-        message += "!show = Show current value of counter\n";
-        bot.send_message(&message, room, MessageType::RoomNotice);
+    fn show_help(&mut self, bot: &MatrixBot, message: &Message) -> HandleResult {
+        let mut help = "Counter:\n".to_string();
+        help += "!incr = Increases counter by one\n";
+        help += "!decr = Decreases counter by one\n";
+        help += "!show = Show current value of counter\n";
+        bot.send_message(&help, &message.room, MessageType::RoomNotice);
         HandleResult::ContinueHandling /* There might be more handlers that implement "help" */
     }
 }
 
 impl MessageHandler for CounterHandler {
-    fn handle_message(&mut self, bot: &MatrixBot, room: &str, message: &str) -> HandleResult {
-        let command = match extract_command(message, "!") {
+    fn handle_message(&mut self, bot: &MatrixBot, message: &Message) -> HandleResult {
+        let command = match extract_command(&message.body, "!") {
             Some(x) => x,
             None => return HandleResult::ContinueHandling,
         };
@@ -98,8 +98,8 @@ impl MessageHandler for CounterHandler {
         match command {
           "incr" => self.counter += 1,
           "decr" => self.counter -= 1,
-          "show" => bot.send_message(&format!("Counter = {}", self.counter), room, MessageType::RoomNotice),
-          "help" => return self.show_help(bot, room, message),
+          "show" => bot.send_message(&format!("Counter = {}", self.counter), &message.room, MessageType::RoomNotice),
+          "help" => return self.show_help(bot, message),
           _ => return HandleResult::ContinueHandling /* Not a known command */
         }
         HandleResult::StopHandling
@@ -108,24 +108,25 @@ impl MessageHandler for CounterHandler {
 
 // --------- Definition for 2. handler -----------
 // Copied from stateless.rs
-fn whoareyou(bot: &MatrixBot, room: &str, _cmd: &str) -> HandleResult {
-    bot.send_message("I'm a bot.", room, MessageType::RoomNotice);
+fn whoareyou(bot: &MatrixBot, message: &Message, _cmd: &str) -> HandleResult {
+    bot.send_message("I'm a bot.", &message.room, MessageType::RoomNotice);
     HandleResult::StopHandling
 }
 
 // --------- Definition for 3. handler -----------
-fn roll_help(bot: &MatrixBot, room: &str, _cmd: &str) -> HandleResult {
-    let mut message = "Roll dice:\n".to_string();
-    message += "!roll X [X ..]\n";
-    message += "with\n";
-    message += "X = some number. Thats the number of eyes your die will have.\n";
-    message += "If multpile numbers are given, multiple dice are rolled. The result as a sum is displayed as well.\n";
-    message += "\nExample: !roll 6 12 => Rolls 2 dice, one with 6, the other with 12 eyes.\n";
-    bot.send_message(&message, room, MessageType::RoomNotice);
+fn roll_help(bot: &MatrixBot, message: &Message, _cmd: &str) -> HandleResult {
+    let mut help = "Roll dice:\n".to_string();
+    help += "!roll X [X ..]\n";
+    help += "with\n";
+    help += "X = some number. Thats the number of eyes your die will have.\n";
+    help += "If multpile numbers are given, multiple dice are rolled. The result as a sum is displayed as well.\n";
+    help += "\nExample: !roll 6 12 => Rolls 2 dice, one with 6, the other with 12 eyes.\n";
+    bot.send_message(&help, &message.room, MessageType::RoomNotice);
     HandleResult::ContinueHandling /* There might be more handlers that implement "help" */
 }
 
-fn roll_dice(bot: &MatrixBot, room: &str, cmd: &str) -> HandleResult {
+fn roll_dice(bot: &MatrixBot, message: &Message, cmd: &str) -> HandleResult {
+    let room = &message.room;
     let cmd_split = cmd.split_whitespace();
 
     let mut results: Vec<u32> = vec![];
@@ -139,7 +140,7 @@ fn roll_dice(bot: &MatrixBot, room: &str, cmd: &str) -> HandleResult {
     }
 
     if results.len() == 0 {
-        return roll_help(bot, room, cmd);
+        return roll_help(bot, message, cmd);
     }
 
     if results.len() == 1 {

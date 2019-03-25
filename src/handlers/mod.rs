@@ -1,5 +1,7 @@
 use MatrixBot;
 
+pub use fractal_matrix_api::types::Message;
+
 /// What to do after finished handling a message
 pub enum HandleResult {
 	/// Give this message to the next MessageHandler as well
@@ -13,7 +15,7 @@ pub enum HandleResult {
 /// The result HandleResult defines if `handle_message()` of other handlers will
 /// be called with this message or not.
 pub trait MessageHandler {
-    fn handle_message(&mut self, bot: &MatrixBot, room: &str, message: &str) -> HandleResult;
+    fn handle_message(&mut self, bot: &MatrixBot, message: &Message) -> HandleResult;
 }
 
 /// Convenience-function to split the incoming message by whitespace and
