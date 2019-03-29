@@ -41,10 +41,7 @@
 //! }
 //! ```
 //! Have a look in the examples/ directory for detailed examples.
-
-extern crate fractal_matrix_api;
-extern crate chrono;
-use self::chrono::prelude::*;
+use chrono::prelude::*;
 
 use fractal_matrix_api::backend::Backend;
 use fractal_matrix_api::backend::BKCommand;
@@ -63,7 +60,6 @@ pub enum MessageType {
     RoomNotice,
     TextMessage,
 }
-
 
 pub struct MatrixBot {
     backend: Sender<BKCommand>,
@@ -223,7 +219,7 @@ impl MatrixBot {
                 // and hand it to the handler-function. After successfull call, we
                 // reset the handlers.
                 if let Some(mut handlers) = self.handlers.take() {
-                    for mut handler in &mut handlers {
+                    for handler in &mut handlers {
                         match handler.handle_message(&self, &message) {
                             HandleResult::ContinueHandling => continue,
                             HandleResult::StopHandling     => break,

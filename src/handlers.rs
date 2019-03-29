@@ -1,4 +1,4 @@
-use MatrixBot;
+use super::MatrixBot;
 
 pub use fractal_matrix_api::types::Message;
 

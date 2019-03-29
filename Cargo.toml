@@ -6,6 +6,7 @@ description = """API for writing a bot for the Matrix messaging protocol"""
 license = "MIT"
 keywords = [ "matrix", "bot", "fractal" ]
 repository = "https://github.com/zwieberl/matrix_bot_api"
+edition = "2018"
 
 [dependencies]
 fractal-matrix-api = "4.0.0"

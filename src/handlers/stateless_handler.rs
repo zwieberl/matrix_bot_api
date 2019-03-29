@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use handlers::{Message, MessageHandler, extract_command, HandleResult};
-use MatrixBot;
+use crate::handlers::{Message, MessageHandler, extract_command, HandleResult};
+use super::MatrixBot;
 
 /// Convenience-handler that can quickly register and call functions
 /// without any state (each function-call will result in the same output)
