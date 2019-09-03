@@ -234,7 +234,7 @@ impl MatrixBot {
 
     fn handle_rooms(&self, rooms: Vec<Room>) {
         for rr in rooms {
-            if rr.membership.is_joined() {
+            if rr.membership.is_invited() {
                 self.backend
                     .send(BKCommand::JoinRoom(rr.id.clone()))
                     .unwrap();
