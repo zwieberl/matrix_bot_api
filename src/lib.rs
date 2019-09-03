@@ -46,6 +46,7 @@ use chrono::prelude::*;
 use fractal_matrix_api::backend::Backend;
 use fractal_matrix_api::backend::BKCommand;
 use fractal_matrix_api::backend::BKResponse;
+use fractal_matrix_api::types::message::get_txn_id;
 pub use fractal_matrix_api::types::{Room, Message};
 
 use std::sync::mpsc::channel;
@@ -145,12 +146,13 @@ impl MatrixBot {
     ///  * msgtype: Type of message (text or notice)
     pub fn send_message(&self, msg: &str, room: &str, msgtype: MessageType) {
         let uid = self.uid.clone().unwrap_or_default();
+        let date = Local::now();
         let mtype = match msgtype {
             MessageType::RoomNotice => "m.notice".to_string(),
             MessageType::TextMessage => "m.text".to_string(),
         };
 
-        let mut m = Message {
+        let m = Message {
             sender: uid,
             mtype: mtype,
             body: msg.to_string(),
@@ -158,7 +160,7 @@ impl MatrixBot {
             date: Local::now(),
             thumb: None,
             url: None,
-            id: None,
+            id: get_txn_id(room, msg, &date.to_string()),
             formatted_body: None,
             format: None,
             in_reply_to: None,
@@ -167,7 +169,6 @@ impl MatrixBot {
             extra_content: None,
             source: None
         };
-        m.id = get_txn_id(&room, &body, &date.to_string());
 
         if self.verbose {
             println!("===> sending: {:?}", m);
@@ -206,7 +207,7 @@ impl MatrixBot {
             self.backend
                 .send(BKCommand::MarkAsRead(
                     message.room.clone(),
-                    message.id.clone().unwrap_or_default(),
+                    message.id.clone(),
                 ))
                 .unwrap();
 
