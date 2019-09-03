@@ -66,7 +66,7 @@ pub struct MatrixBot {
     rx: Receiver<BKResponse>,
     uid: Option<String>,
     verbose: bool,
-    handlers: Option<Vec<Box<MessageHandler>>>,
+    handlers: Option<Vec<Box<dyn MessageHandler>>>,
 }
 
 impl MatrixBot {
@@ -167,7 +167,7 @@ impl MatrixBot {
             extra_content: None,
             source: None
         };
-        m.id = Some(m.get_txn_id());
+        m.id = get_txn_id(&room, &body, &date.to_string());
 
         if self.verbose {
             println!("===> sending: {:?}", m);
@@ -182,7 +182,7 @@ impl MatrixBot {
         }
 
         match resp {
-            BKResponse::NewRooms(x) => self.handle_rooms(x),
+            BKResponse::UpdateRooms(x) => self.handle_rooms(x),
             //BKResponse::Rooms(x, _) => self.handle_rooms(x),
             BKResponse::RoomMessages(x) => self.handle_messages(x),
             BKResponse::Token(uid, _, _) => {
@@ -233,7 +233,7 @@ impl MatrixBot {
 
     fn handle_rooms(&self, rooms: Vec<Room>) {
         for rr in rooms {
-            if rr.inv {
+            if rr.membership.is_joined() {
                 self.backend
                     .send(BKCommand::JoinRoom(rr.id.clone()))
                     .unwrap();
