@@ -43,19 +43,22 @@
 //! Have a look in the examples/ directory for detailed examples.
 use chrono::prelude::*;
 
-use fractal_matrix_api::backend::Backend;
 use fractal_matrix_api::backend::BKCommand;
 use fractal_matrix_api::backend::BKResponse;
+use fractal_matrix_api::backend::Backend;
 use fractal_matrix_api::types::message::get_txn_id;
-pub use fractal_matrix_api::types::{Room, Message};
+pub use fractal_matrix_api::types::{Message, Room};
 
 use std::sync::mpsc::channel;
-use std::sync::mpsc::{Sender, Receiver};
+use std::sync::mpsc::{Receiver, Sender};
+
 
 pub mod handlers;
-use handlers::{MessageHandler, HandleResult};
+use handlers::{HandleResult, MessageHandler};
 
-/// How messages from the bot should be formated. This is up to the client,
+
+
+/// How messages from the bot should be formatted. This is up to the client,
 /// but usually RoomNotice's have a different color than TextMessage's.
 pub enum MessageType {
     RoomNotice,
@@ -67,13 +70,15 @@ pub struct MatrixBot {
     rx: Receiver<BKResponse>,
     uid: Option<String>,
     verbose: bool,
-    handlers: Option<Vec<Box<dyn MessageHandler>>>,
+    handlers: Vec<Box<dyn MessageHandler + Send>>,
 }
 
 impl MatrixBot {
     /// Consumes any struct that implements the MessageHandler-trait.
     pub fn new<M>(handler: M) -> MatrixBot
-        where M: handlers::MessageHandler + 'static {
+    where
+        M: handlers::MessageHandler + 'static + Send,
+    {
         let (tx, rx): (Sender<BKResponse>, Receiver<BKResponse>) = channel();
         let bk = Backend::new(tx);
         // Here it would be ideal to extend fractal_matrix_api in order to be able to give
@@ -83,10 +88,10 @@ impl MatrixBot {
         bk.data.lock().unwrap().since = Some(Local::now().to_string());
         MatrixBot {
             backend: bk.run(),
-            rx: rx,
+            rx,
             uid: None,
             verbose: false,
-            handlers: Some(vec![Box::new(handler)])
+            handlers: vec![Box::new(handler)],
         }
     }
 
@@ -94,11 +99,10 @@ impl MatrixBot {
     /// Each message will be given to all registered handlers until
     /// one of them returns "HandleResult::StopHandling".
     pub fn add_handler<M>(&mut self, handler: M)
-    where M: handlers::MessageHandler + 'static {
-        if let Some(mut handlers) = self.handlers.take() {
-            handlers.push(Box::new(handler));
-            self.handlers = Some(handlers)
-        }
+    where
+        M: handlers::MessageHandler + 'static + Send,
+    {
+        self.handlers.push(Box::new(handler));
     }
 
     /// If true, will print all Matrix-message coming in and going out (quite verbose!) to stdout
@@ -120,14 +124,91 @@ impl MatrixBot {
                 homeserver_url.to_string(),
             ))
             .unwrap();
+
+        let mut active_bot = ActiveBot {
+            backend: self.backend.clone(),
+            uid: self.uid.clone(),
+            verbose: self.verbose
+        };
+
         loop {
             let cmd = self.rx.recv().unwrap();
-            if !self.handle_recvs(cmd) {
+            if !self.handle_recvs(cmd, &mut active_bot) {
                 break;
             }
         }
     }
 
+    /* --------- Private functions ------------ */
+    fn handle_recvs(&mut self, resp: BKResponse, active_bot: &mut ActiveBot) -> bool {
+        if self.verbose {
+            println!("<=== received: {:?}", resp);
+        }
+
+        match resp {
+            BKResponse::UpdateRooms(x) => self.handle_rooms(x),
+            //BKResponse::Rooms(x, _) => self.handle_rooms(x),
+            BKResponse::RoomMessages(x) => self.handle_messages(x, active_bot),
+            BKResponse::Token(uid, _, _) => {
+                self.uid = Some(uid); // Successful login
+                active_bot.uid = self.uid.clone();
+                self.backend.send(BKCommand::Sync(None, true)).unwrap();
+            }
+            BKResponse::Sync(_) => self.backend.send(BKCommand::Sync(None, false)).unwrap(),
+            BKResponse::SyncError(_) => self.backend.send(BKCommand::Sync(None, false)).unwrap(),
+            BKResponse::ShutDown => {
+                return false;
+            }
+            _ => (),
+        }
+        true
+    }
+
+    fn handle_messages(&mut self, messages: Vec<Message>, active_bot: &ActiveBot) {
+        for message in messages {
+            /* First of all, mark all new messages as "read" */
+            self.backend
+                .send(BKCommand::MarkAsRead(
+                    message.room.clone(),
+                    message.id.clone(),
+                ))
+                .unwrap();
+
+            // It might be a command for us, if the message is text
+            // and if its not from the bot itself
+            let uid = self.uid.clone().unwrap_or_default();
+            // This might be a command for us (only text-messages are interesting)
+            if message.mtype == "m.text" && message.sender != uid {
+                for handler in self.handlers.iter_mut() {
+                    match handler.handle_message(&active_bot, &message) {
+                        HandleResult::ContinueHandling => continue,
+                        HandleResult::StopHandling => break,
+                    }
+                }
+            }
+        }
+    }
+
+    fn handle_rooms(&self, rooms: Vec<Room>) {
+        for rr in rooms {
+            if rr.membership.is_invited() {
+                self.backend
+                    .send(BKCommand::JoinRoom(rr.id.clone()))
+                    .unwrap();
+                println!("Joining room {}", rr.id.clone());
+            }
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct ActiveBot {
+    backend: Sender<BKCommand>,
+    uid: Option<String>,
+    verbose: bool
+}
+
+impl ActiveBot {
     /// Will shutdown the bot. The bot will not leave any rooms.
     pub fn shutdown(&self) {
         self.backend.send(BKCommand::ShutDown).unwrap();
@@ -154,7 +235,7 @@ impl MatrixBot {
 
         let m = Message {
             sender: uid,
-            mtype: mtype,
+            mtype,
             body: msg.to_string(),
             room: room.to_string(),
             date: Local::now(),
@@ -167,79 +248,12 @@ impl MatrixBot {
             receipt: std::collections::HashMap::new(),
             redacted: false,
             extra_content: None,
-            source: None
+            source: None,
         };
 
         if self.verbose {
             println!("===> sending: {:?}", m);
         }
         self.backend.send(BKCommand::SendMsg(m)).unwrap();
-    }
-
-    /* --------- Private functions ------------ */
-    fn handle_recvs(&mut self, resp: BKResponse) -> bool {
-        if self.verbose {
-            println!("<=== received: {:?}", resp);
-        }
-
-        match resp {
-            BKResponse::UpdateRooms(x) => self.handle_rooms(x),
-            //BKResponse::Rooms(x, _) => self.handle_rooms(x),
-            BKResponse::RoomMessages(x) => self.handle_messages(x),
-            BKResponse::Token(uid, _, _) => {
-                self.uid = Some(uid); // Successfull login
-                self.backend.send(BKCommand::Sync(None, true)).unwrap();
-            }
-            BKResponse::Sync(_) => self.backend.send(BKCommand::Sync(None, false)).unwrap(),
-            BKResponse::SyncError(_) => self.backend.send(BKCommand::Sync(None, false)).unwrap(),
-            BKResponse::ShutDown => {
-                return false;
-            }
-            _ => (),
-        }
-        true
-    }
-
-    fn handle_messages(&mut self, messages: Vec<Message>) {
-
-        for message in messages {
-            /* First of all, mark all new messages as "read" */
-            self.backend
-                .send(BKCommand::MarkAsRead(
-                    message.room.clone(),
-                    message.id.clone(),
-                ))
-                .unwrap();
-
-            // It might be a command for us, if the message is text
-            // and if its not from the bot itself
-            let uid = self.uid.clone().unwrap_or_default();
-            // This might be a command for us (only text-messages are interesting)
-            if message.mtype == "m.text" && message.sender != uid {
-                // We take the handlers, in order to be able to borrow self (MatrixBot)
-                // and hand it to the handler-function. After successfull call, we
-                // reset the handlers.
-                if let Some(mut handlers) = self.handlers.take() {
-                    for handler in &mut handlers {
-                        match handler.handle_message(&self, &message) {
-                            HandleResult::ContinueHandling => continue,
-                            HandleResult::StopHandling     => break,
-                        }
-                    }
-                    self.handlers = Some(handlers);
-                }
-            }
-        }
-    }
-
-    fn handle_rooms(&self, rooms: Vec<Room>) {
-        for rr in rooms {
-            if rr.membership.is_invited() {
-                self.backend
-                    .send(BKCommand::JoinRoom(rr.id.clone()))
-                    .unwrap();
-                println!("Joining room {}", rr.id.clone());
-            }
-        }
     }
 }

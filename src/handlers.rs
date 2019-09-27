@@ -1,13 +1,13 @@
-use super::MatrixBot;
+
 
 pub use fractal_matrix_api::types::Message;
 
 /// What to do after finished handling a message
 pub enum HandleResult {
-	/// Give this message to the next MessageHandler as well
-	ContinueHandling,
-	/// Stop handling this message
-	StopHandling
+    /// Give this message to the next MessageHandler as well
+    ContinueHandling,
+    /// Stop handling this message
+    StopHandling,
 }
 
 /// Any struct that implements this trait can be passed to a MatrixBot.
@@ -15,7 +15,7 @@ pub enum HandleResult {
 /// The result HandleResult defines if `handle_message()` of other handlers will
 /// be called with this message or not.
 pub trait MessageHandler {
-    fn handle_message(&mut self, bot: &MatrixBot, message: &Message) -> HandleResult;
+    fn handle_message(&mut self, bot: &ActiveBot, message: &Message) -> HandleResult;
 }
 
 /// Convenience-function to split the incoming message by whitespace and
@@ -25,7 +25,7 @@ pub trait MessageHandler {
 /// extract_command("!roll 6", "!") will return Some("roll")
 /// extract_command("Hi all!", "!") will return None
 pub fn extract_command<'a>(message: &'a str, prefix: &str) -> Option<&'a str> {
-	if message.starts_with(prefix) {
+    if message.starts_with(prefix) {
         let new_start = prefix.len();
         let key = message[new_start..].split_whitespace().next().unwrap();
         return Some(&key);
@@ -35,3 +35,6 @@ pub fn extract_command<'a>(message: &'a str, prefix: &str) -> Option<&'a str> {
 
 pub mod stateless_handler;
 pub use self::stateless_handler::StatelessHandler;
+
+
+use crate::ActiveBot;

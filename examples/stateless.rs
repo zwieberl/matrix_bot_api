@@ -3,11 +3,11 @@
 extern crate config;
 
 extern crate matrix_bot_api;
-use matrix_bot_api::{MatrixBot, MessageType};
-use matrix_bot_api::handlers::{Message, StatelessHandler, HandleResult};
+use matrix_bot_api::handlers::{HandleResult, Message, StatelessHandler};
+use matrix_bot_api::{ActiveBot, MatrixBot, MessageType};
 
 // Handle that prints "I'm a bot." as a room-notice on command !whoareyou
-fn whoareyou(bot: &MatrixBot, message: &Message, _tail: &str) -> HandleResult {
+fn whoareyou(bot: &ActiveBot, message: &Message, _tail: &str) -> HandleResult {
     bot.send_message("I'm a bot.", &message.room, MessageType::RoomNotice);
     HandleResult::StopHandling
 }
@@ -19,10 +19,12 @@ fn main() {
     // load from botconfig.toml.
     // Change this file to your needs, if you want to use this example binary.
     let mut settings = config::Config::default();
-    settings.merge(config::File::with_name("examples/botconfig")).unwrap();
+    settings
+        .merge(config::File::with_name("examples/botconfig"))
+        .unwrap();
 
     let user = settings.get_str("user").unwrap();
-    let password  = settings.get_str("password").unwrap();
+    let password = settings.get_str("password").unwrap();
     let homeserver_url = settings.get_str("homeserver_url").unwrap();
     // -------------------------------------------------------
 
@@ -44,7 +46,11 @@ fn main() {
 
     // Simply echo what was given to you by !echo XY (will print only "Echo: XY", !echo is stripped)
     handler.register_handle("echo", |bot, message, tail| {
-        bot.send_message(&format!("Echo: {}", tail), &message.room, MessageType::TextMessage);
+        bot.send_message(
+            &format!("Echo: {}", tail),
+            &message.room,
+            MessageType::TextMessage,
+        );
         HandleResult::StopHandling
     });
 
