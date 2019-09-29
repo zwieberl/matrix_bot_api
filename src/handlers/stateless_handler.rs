@@ -1,6 +1,6 @@
 use crate::handlers::{extract_command, HandleResult, Message, MessageHandler};
-use std::collections::HashMap;
 use crate::ActiveBot;
+use std::collections::HashMap;
 
 /// Convenience-handler that can quickly register and call functions
 /// without any state (each function-call will result in the same output)
