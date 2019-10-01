@@ -2,14 +2,15 @@
 //! Easy to use API for implementing your own Matrix-Bot (see matrix.org)
 //!
 //! # Basic setup:
-//! There are two parts: A MessageHandler and the MatrixBot.
+//! There are two main parts: A [`MessageHandler`] and the [`MatrixBot`].
 //! The MessageHandler defines what happens with received messages.
 //! The MatrixBot consumes your MessageHandler and deals with all
 //! the matrix-protocol-stuff, calling your MessageHandler for each
-//! new text-message.
+//! new text-message with an [`ActiveBot`] handle that allows the handler to
+//! respond to the message.
 //!
-//! You can write your own MessageHandler by implementing the `MessageHandler`-trait,
-//! or use one provided by this crate (currently only `StatelessHandler`).
+//! You can write your own MessageHandler by implementing the [`MessageHandler`]-trait,
+//! or use one provided by this crate (currently only [`StatelessHandler`]).
 //!
 //! # Multple Handlers:
 //! One can register multiple MessageHandlers with a bot. Thus one can "plug and play"
@@ -41,6 +42,11 @@
 //! }
 //! ```
 //! Have a look in the examples/ directory for detailed examples.
+//!
+//! [`MatrixBot`]: struct.MatrixBot.html
+//! [`ActiveBot`]: struct.ActiveBot.html
+//! [`MessageHandler`]: handlers/trait.MessageHandler.html
+//! [`StatelessHandler`]: handlers/stateless_handler/struct.StatelessHandler.html
 use chrono::prelude::*;
 
 use fractal_matrix_api::backend::BKCommand;
@@ -201,6 +207,8 @@ impl MatrixBot {
     }
 }
 
+/// Handle for an active bot that allows sending message, leaving rooms
+/// and shutting down the bot
 #[derive(Clone)]
 pub struct ActiveBot {
     backend: Sender<BKCommand>,
