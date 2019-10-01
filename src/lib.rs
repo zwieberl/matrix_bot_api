@@ -58,11 +58,8 @@ pub use fractal_matrix_api::types::{Message, Room};
 use std::sync::mpsc::channel;
 use std::sync::mpsc::{Receiver, Sender};
 
-
 pub mod handlers;
 use handlers::{HandleResult, MessageHandler};
-
-
 
 /// How messages from the bot should be formatted. This is up to the client,
 /// but usually RoomNotice's have a different color than TextMessage's.
@@ -134,8 +131,12 @@ impl MatrixBot {
         let mut active_bot = ActiveBot {
             backend: self.backend.clone(),
             uid: self.uid.clone(),
-            verbose: self.verbose
+            verbose: self.verbose,
         };
+
+        for handler in self.handlers.iter_mut() {
+            handler.init_handler(&active_bot);
+        }
 
         loop {
             let cmd = self.rx.recv().unwrap();
@@ -213,7 +214,7 @@ impl MatrixBot {
 pub struct ActiveBot {
     backend: Sender<BKCommand>,
     uid: Option<String>,
-    verbose: bool
+    verbose: bool,
 }
 
 impl ActiveBot {

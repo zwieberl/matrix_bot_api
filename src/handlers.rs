@@ -1,5 +1,3 @@
-
-
 pub use fractal_matrix_api::types::Message;
 
 /// What to do after finished handling a message
@@ -11,11 +9,18 @@ pub enum HandleResult {
 }
 
 /// Any struct that implements this trait can be passed to a MatrixBot.
-/// The bot will call handle_message() on each arriving text-message
+/// The bot will call `handle_message()` on each arriving text-message
 /// The result HandleResult defines if `handle_message()` of other handlers will
 /// be called with this message or not.
+///
+/// The bot will also call `init_handler()` on startup to allow handlers to
+/// setup any background work
 pub trait MessageHandler {
+    /// Will be called for every text message send to a room the bot is in
     fn handle_message(&mut self, bot: &ActiveBot, message: &Message) -> HandleResult;
+
+    /// Will be called once the bot has started
+    fn init_handler(&mut self, _bot: &ActiveBot) {}
 }
 
 /// Convenience-function to split the incoming message by whitespace and
@@ -35,6 +40,5 @@ pub fn extract_command<'a>(message: &'a str, prefix: &str) -> Option<&'a str> {
 
 pub mod stateless_handler;
 pub use self::stateless_handler::StatelessHandler;
-
 
 use crate::ActiveBot;
