@@ -232,14 +232,31 @@ impl ActiveBot {
 
     /// Sends a message to a given room, with a given message-type.
     ///  * msg:     The incoming message
-    ///  * room:    The room-id, the message should be sent to
+    ///  * room:    The room-id that the message should be sent to
     ///  * msgtype: Type of message (text or notice)
     pub fn send_message(&self, msg: &str, room: &str, msgtype: MessageType) {
+        let html = None;
+        self.raw_send_message(msg,html,room,msgtype);
+    }
+    /// Sends an HTML message to a given room, with a given message-type.
+    ///  * msg:     The incoming message
+    ///  * html:    The html-formatted message
+    ///  * room:    The room-id that the message should be sent to
+    ///  * msgtype: Type of message (text or notice)
+    pub fn send_html_message(&self, msg: &str, html: &str, room: &str, msgtype: MessageType) {
+        self.raw_send_message(msg,Some(html),room,msgtype);
+    }
+    fn raw_send_message(&self, msg: &str, html: Option<&str>, room: &str, msgtype: MessageType) {
         let uid = self.uid.clone().unwrap_or_default();
         let date = Local::now();
         let mtype = match msgtype {
             MessageType::RoomNotice => "m.notice".to_string(),
             MessageType::TextMessage => "m.text".to_string(),
+        };
+
+        let (format,formatted_body) = match html {
+            None => (None,None),
+            Some(h) => (Some("org.matrix.custom.html".to_string()),Some(h.to_string()))
         };
 
         let m = Message {
@@ -251,8 +268,8 @@ impl ActiveBot {
             thumb: None,
             url: None,
             id: get_txn_id(room, msg, &date.to_string()),
-            formatted_body: None,
-            format: None,
+            formatted_body,
+            format,
             in_reply_to: None,
             receipt: std::collections::HashMap::new(),
             redacted: false,
@@ -264,5 +281,6 @@ impl ActiveBot {
             println!("===> sending: {:?}", m);
         }
         self.backend.send(BKCommand::SendMsg(m)).unwrap();
+
     }
 }
