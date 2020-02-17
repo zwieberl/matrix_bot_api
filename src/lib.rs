@@ -98,6 +98,15 @@ impl MatrixBot {
         }
     }
 
+    /// Create a copy of the internal ActiveBot instance for sending messages
+    pub fn get_activebot_clone(&self) -> ActiveBot {
+        ActiveBot {
+            backend: self.backend.clone(),
+            uid: self.uid.clone(),
+            verbose: self.verbose,
+        }
+    }
+
     /// Add an additional handler.
     /// Each message will be given to all registered handlers until
     /// one of them returns "HandleResult::StopHandling".
@@ -128,11 +137,7 @@ impl MatrixBot {
             ))
             .unwrap();
 
-        let mut active_bot = ActiveBot {
-            backend: self.backend.clone(),
-            uid: self.uid.clone(),
-            verbose: self.verbose,
-        };
+        let mut active_bot = self.get_activebot_clone();
 
         for handler in self.handlers.iter_mut() {
             handler.init_handler(&active_bot);
