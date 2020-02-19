@@ -171,6 +171,7 @@ impl MatrixBot {
             BKResponse::ShutDown => {
                 return false;
             }
+            BKResponse::LoginError(x) => { panic!("Error while trying to login: {:#?}", x) }
             _ => (),
         }
         true
