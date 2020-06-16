@@ -49,6 +49,9 @@
 //! [`StatelessHandler`]: handlers/stateless_handler/struct.StatelessHandler.html
 use chrono::prelude::*;
 
+use serde_json::json;
+use serde_json::value::Value as JsonValue;
+
 use fractal_matrix_api::backend::BKCommand;
 use fractal_matrix_api::backend::BKResponse;
 use fractal_matrix_api::backend::Backend;
@@ -66,6 +69,7 @@ use handlers::{HandleResult, MessageHandler};
 pub enum MessageType {
     RoomNotice,
     TextMessage,
+    Image,
 }
 
 pub struct MatrixBot {
@@ -171,7 +175,7 @@ impl MatrixBot {
             BKResponse::ShutDown => {
                 return false;
             }
-            BKResponse::LoginError(x) => { panic!("Error while trying to login: {:#?}", x) }
+            BKResponse::LoginError(x) => panic!("Error while trying to login: {:#?}", x),
             _ => (),
         }
         true
@@ -242,7 +246,7 @@ impl ActiveBot {
     ///  * msgtype: Type of message (text or notice)
     pub fn send_message(&self, msg: &str, room: &str, msgtype: MessageType) {
         let html = None;
-        self.raw_send_message(msg,html,room,msgtype);
+        self.raw_send_message(msg, html, None, None, room, msgtype);
     }
     /// Sends an HTML message to a given room, with a given message-type.
     ///  * msg:     The incoming message
@@ -250,19 +254,63 @@ impl ActiveBot {
     ///  * room:    The room-id that the message should be sent to
     ///  * msgtype: Type of message (text or notice)
     pub fn send_html_message(&self, msg: &str, html: &str, room: &str, msgtype: MessageType) {
-        self.raw_send_message(msg,Some(html),room,msgtype);
+        self.raw_send_message(msg, Some(html), None, None, room, msgtype);
     }
-    fn raw_send_message(&self, msg: &str, html: Option<&str>, room: &str, msgtype: MessageType) {
+
+    /// Sends an image to a given room.
+    ///  * name: The name of the image
+    ///  * url:  The url for the image
+    ///  * room: The room-id that the message should be sent to
+    pub fn send_image(
+        &self,
+        name: &str,
+        url: &str,
+        width: i32,
+        height: i32,
+        size: i32,
+        mime_type: &str,
+        room: &str,
+    ) {
+        let raw = json!({"info": {
+            "h": height,
+            "mimetype":mime_type,
+            "size":size,
+            "w":width
+        }});
+
+        self.raw_send_message(
+            name,
+            None,
+            Some(url.to_string()),
+            Some(raw),
+            room,
+            MessageType::Image,
+        )
+    }
+
+    fn raw_send_message(
+        &self,
+        msg: &str,
+        html: Option<&str>,
+        url: Option<String>,
+        extra_content: Option<JsonValue>,
+        room: &str,
+        msgtype: MessageType,
+    ) {
         let uid = self.uid.clone().unwrap_or_default();
         let date = Local::now();
         let mtype = match msgtype {
             MessageType::RoomNotice => "m.notice".to_string(),
             MessageType::TextMessage => "m.text".to_string(),
+            MessageType::Image => "m.image".to_string(),
         };
 
-        let (format,formatted_body) = match html {
-            None => (None,None),
-            Some(h) => (Some("org.matrix.custom.html".to_string()),Some(h.to_string()))
+        let (format, formatted_body) = match html {
+            None => (None, None),
+            Some(h) => (
+                Some("org.matrix.custom.html".to_string()),
+                Some(h.to_string()),
+            ),
         };
 
         let m = Message {
@@ -272,21 +320,21 @@ impl ActiveBot {
             room: room.to_string(),
             date: Local::now(),
             thumb: None,
-            url: None,
+            url: url,
             id: get_txn_id(room, msg, &date.to_string()),
             formatted_body,
             format,
             in_reply_to: None,
             receipt: std::collections::HashMap::new(),
             redacted: false,
-            extra_content: None,
+            extra_content: extra_content,
             source: None,
         };
 
         if self.verbose {
             println!("===> sending: {:?}", m);
         }
-        self.backend.send(BKCommand::SendMsg(m)).unwrap();
 
+        self.backend.send(BKCommand::SendMsg(m)).unwrap();
     }
 }
