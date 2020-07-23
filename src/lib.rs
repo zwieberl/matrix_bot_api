@@ -281,7 +281,7 @@ impl ActiveBot {
         self.raw_send_message(
             name,
             None,
-            Some(url.to_string()),
+            Some(url),
             Some(raw),
             room,
             MessageType::Image,
@@ -292,7 +292,7 @@ impl ActiveBot {
         &self,
         msg: &str,
         html: Option<&str>,
-        url: Option<String>,
+        url: Option<&str>,
         extra_content: Option<JsonValue>,
         room: &str,
         msgtype: MessageType,
@@ -313,6 +313,11 @@ impl ActiveBot {
             ),
         };
 
+        let u = match url {
+            None => None,
+            Some(a) => Some(a.to_string()),
+        };
+
         let m = Message {
             sender: uid,
             mtype,
@@ -320,7 +325,7 @@ impl ActiveBot {
             room: room.to_string(),
             date: Local::now(),
             thumb: None,
-            url: url,
+            url: u,
             id: get_txn_id(room, msg, &date.to_string()),
             formatted_body,
             format,
