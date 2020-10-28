@@ -77,6 +77,7 @@ pub struct MatrixBot {
     rx: Receiver<BKResponse>,
     uid: Option<String>,
     verbose: bool,
+    update_read_marker: bool,
     handlers: Vec<Box<dyn MessageHandler + Send>>,
 }
 
@@ -98,6 +99,7 @@ impl MatrixBot {
             rx,
             uid: None,
             verbose: false,
+            update_read_marker: true,
             handlers: vec![Box::new(handler)],
         }
     }
@@ -125,6 +127,12 @@ impl MatrixBot {
     /// Default: false
     pub fn set_verbose(&mut self, verbose: bool) {
         self.verbose = verbose;
+    }
+
+    /// If true, bot will continually update its read marker
+    /// Default: true
+    pub fn set_update_read_marker(&mut self, update_read_marker: bool) {
+        self.update_read_marker = update_read_marker;
     }
 
     /// Blocking call that runs as long as the Bot is running.
@@ -183,13 +191,16 @@ impl MatrixBot {
 
     fn handle_messages(&mut self, messages: Vec<Message>, active_bot: &ActiveBot) {
         for message in messages {
+            
             /* First of all, mark all new messages as "read" */
-            self.backend
-                .send(BKCommand::MarkAsRead(
-                    message.room.clone(),
-                    message.id.clone(),
-                ))
-                .unwrap();
+            if self.update_read_marker {
+                self.backend
+                    .send(BKCommand::MarkAsRead(
+                        message.room.clone(),
+                        message.id.clone(),
+                    ))
+                    .unwrap();
+            }
 
             // It might be a command for us, if the message is text
             // and if its not from the bot itself
